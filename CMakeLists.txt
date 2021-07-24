@@ -63,17 +63,34 @@ if(BOOST_SUPERPROJECT_VERSION)
     #
     # Building as part of Boost superproject tree, with Boost as dependency.
     #
-    target_link_libraries(boost_http_io
-        PUBLIC
-            Boost::align
-            Boost::assert
-            Boost::config
-            Boost::container
-            Boost::exception
-            Boost::system
-            Boost::throw_exception
-            Boost::utility
-    )
+    #target_link_libraries(boost_http_io
+        #PUBLIC
+            #Boost::http_proto
+            #Boost::align
+            #Boost::assert
+            #Boost::config
+            #Boost::container
+            #Boost::exception
+            #Boost::system
+            #Boost::throw_exception
+            #Boost::utility
+    #)
+    #
+    # Building inside Boost tree, but as a separate project e.g. on Travis or
+    # other CI, or when producing Visual Studio Solution and Projects. This is
+    # when we have to add dependencies to the project manually.
+    foreach(lib
+        http_proto
+        )
+        add_subdirectory(../${lib} libs/${lib} EXCLUDE_FROM_ALL)
+        set(target boost_${lib})
+        if(TARGET ${target})
+          get_target_property(lib_type ${target} TYPE)
+          if(NOT ${lib_type} STREQUAL INTERFACE_LIBRARY)
+            set_property(TARGET ${target} PROPERTY FOLDER _deps/${lib})
+          endif()
+        endif()
+    endforeach()
 
 elseif(BOOST_HTTP_IO_IN_BOOST_TREE)
     #
@@ -137,4 +154,4 @@ if(BUILD_TESTING)
     add_subdirectory(test)
 endif()
 
-#add_subdirectory (example)
+add_subdirectory (example)

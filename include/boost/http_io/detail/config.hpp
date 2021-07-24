@@ -11,8 +11,6 @@
 #define BOOST_HTTP_IO_DETAIL_CONFIG_HPP
 
 #include <boost/config.hpp>
-//#include <boost/assert.hpp>
-//#include <boost/throw_exception.hpp>
 
 #if defined(BOOST_HTTP_IO_DOCS)
 # define BOOST_HTTP_IO_DECL
