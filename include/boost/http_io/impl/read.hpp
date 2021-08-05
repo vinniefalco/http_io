@@ -11,9 +11,36 @@
 #define BOOST_HTTP_IO_IMPL_READ_HPP
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
 
 namespace boost {
 namespace http_io {
+
+template<
+    class SyncReadStream>
+std::size_t
+read_some(
+    SyncReadStream& s,
+    http_proto::basic_parser& p,
+    error_code& ec)
+{
+    auto const b = p.prepare();
+    auto const bytes_transferred =
+        s.read_some(
+        asio::mutable_buffer(
+            b.first, b.second), ec);
+    if(ec != asio::error::eof)
+    {
+        BOOST_ASSERT(bytes_transferred > 0);
+        p.commit(bytes_transferred);
+    }
+    else
+    {
+        BOOST_ASSERT(bytes_transferred == 0);
+        p.commit_eof();
+    }
+    return bytes_transferred;
+}
 
 template<
     class SyncReadStream>
@@ -24,21 +51,18 @@ read_header(
     error_code& ec)
 {
     std::size_t n = 0;
-
-    while(p.need_more())
+    for(;;)
     {
-        auto const b = p.prepare();
+        p.parse_header(ec);
+        if(! ec)
+            break;
+        if(ec != http_proto::error::need_more)
+            return n;
         auto const bytes_transferred =
-            s.read_some(
-            asio::mutable_buffer(
-                b.first, b.second), ec);
+            boost::http_io::read_some(s, p, ec);
         n += bytes_transferred;
         if(ec)
-            break;
-        p.commit(bytes_transferred);
-        p.parse_header(ec);
-        if(ec)
-            break;
+            return n;
     }
 
     return n;

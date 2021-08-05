@@ -20,6 +20,14 @@ namespace http_io {
 template<
     class SyncReadStream>
 std::size_t
+read_some(
+    SyncReadStream& stream,
+    http_proto::basic_parser& parser,
+    error_code& ec);
+
+template<
+    class SyncReadStream>
+std::size_t
 read_header(
     SyncReadStream& stream,
     http_proto::basic_parser& parser,
