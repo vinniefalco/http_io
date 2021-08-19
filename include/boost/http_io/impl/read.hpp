@@ -31,14 +31,13 @@ read_some(
             b.first, b.second), ec);
     if(ec != asio::error::eof)
     {
-        BOOST_ASSERT(bytes_transferred > 0);
         p.commit(bytes_transferred);
+        return bytes_transferred;
     }
-    else
-    {
-        BOOST_ASSERT(bytes_transferred == 0);
-        p.commit_eof();
-    }
+    BOOST_ASSERT(
+        bytes_transferred == 0);
+    p.commit_eof();
+    ec = {};
     return bytes_transferred;
 }
 
@@ -66,6 +65,44 @@ read_header(
     }
 
     return n;
+}
+
+template<
+    class SyncReadStream>
+std::size_t
+read_body_part(
+    SyncReadStream& s,
+    http_proto::basic_parser& p,
+    error_code& ec)
+{
+    std::size_t n = 0;
+    p.parse_body(ec);
+    if(! ec)
+        return 0;
+    if(ec != http_proto::error::need_more)
+        return 0;
+    auto const bytes_transferred =
+        boost::http_io::read_some(s, p, ec);
+    if(ec)
+        return bytes_transferred;
+    return bytes_transferred;
+}
+
+template<
+    class SyncReadStream>
+std::size_t
+read_body(
+    SyncReadStream& s,
+    http_proto::basic_parser& p,
+    error_code& ec)
+{
+    std::size_t n = 0;
+    for(;;)
+    {
+        n += read_body_part(s, p, ec);
+        if(ec)
+            return n;
+    }
 }
 
 } // http_io

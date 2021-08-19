@@ -23,31 +23,24 @@
 #include <string>
 #include <thread>
 
-#if 0
-#include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
-#include <boost/config.hpp>
-#endif
-
 namespace http_io = boost::http_io;
 namespace http_proto = boost::http_proto;
 namespace net = boost::asio;
 using tcp = boost::asio::ip::tcp;
+using string_view = http_proto::string_view;
 
 //------------------------------------------------------------------------------
 
-#if 0
 // Return a reasonable mime type based on the extension of a file.
-beast::string_view
-mime_type(beast::string_view path)
+string_view
+mime_type(string_view path)
 {
-    using beast::iequals;
+    using http_proto::bnf::iequals;
     auto const ext = [&path]
     {
         auto const pos = path.rfind(".");
-        if(pos == beast::string_view::npos)
-            return beast::string_view{};
+        if(pos == string_view::npos)
+            return string_view{};
         return path.substr(pos);
     }();
     if(iequals(ext, ".htm"))  return "text/html";
@@ -78,8 +71,8 @@ mime_type(beast::string_view path)
 // The returned path is normalized for the platform.
 std::string
 path_cat(
-    beast::string_view base,
-    beast::string_view path)
+    string_view base,
+    string_view path)
 {
 	if (base.empty())
 		return std::string(path);
@@ -105,22 +98,20 @@ path_cat(
 // request. The type of the response object depends on the
 // contents of the request, so the interface requires the
 // caller to pass a generic lambda for receiving the response.
-template<
-    class Body, class Allocator,
-    class Send>
-void
+http_proto::response
 handle_request(
-    beast::string_view doc_root,
-    http::request<Body, http::basic_fields<Allocator>>&& req,
-    Send&& send)
+    string_view doc_root,
+    http_proto::request_view const& req)
 {
+    return {};
+#if 0
     // Returns a bad request response
     auto const bad_request =
     [&req](beast::string_view why)
     {
-        http::response<http::string_body> res{http::status::bad_request, req.version()};
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http::field::content_type, "text/html");
+        http_proto::response<http_proto::string_body> res{http_proto::status::bad_request, req.version()};
+        res.set(http_proto::field::server, BOOST_BEAST_VERSION_STRING);
+        res.set(http_proto::field::content_type, "text/html");
         res.keep_alive(req.keep_alive());
         res.body() = std::string(why);
         res.prepare_payload();
@@ -131,9 +122,9 @@ handle_request(
     auto const not_found =
     [&req](beast::string_view target)
     {
-        http::response<http::string_body> res{http::status::not_found, req.version()};
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http::field::content_type, "text/html");
+        http_proto::response<http_proto::string_body> res{http_proto::status::not_found, req.version()};
+        res.set(http_proto::field::server, BOOST_BEAST_VERSION_STRING);
+        res.set(http_proto::field::content_type, "text/html");
         res.keep_alive(req.keep_alive());
         res.body() = "The resource '" + std::string(target) + "' was not found.";
         res.prepare_payload();
@@ -144,9 +135,9 @@ handle_request(
     auto const server_error =
     [&req](beast::string_view what)
     {
-        http::response<http::string_body> res{http::status::internal_server_error, req.version()};
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http::field::content_type, "text/html");
+        http_proto::response<http_proto::string_body> res{http_proto::status::internal_server_error, req.version()};
+        res.set(http_proto::field::server, BOOST_BEAST_VERSION_STRING);
+        res.set(http_proto::field::content_type, "text/html");
         res.keep_alive(req.keep_alive());
         res.body() = "An error occurred: '" + std::string(what) + "'";
         res.prepare_payload();
@@ -154,8 +145,8 @@ handle_request(
     };
 
     // Make sure we can handle the method
-    if( req.method() != http::verb::get &&
-        req.method() != http::verb::head)
+    if( req.method() != http_proto::verb::get &&
+        req.method() != http_proto::verb::head)
         return send(bad_request("Unknown HTTP-method"));
 
     // Request path must be absolute and not contain "..".
@@ -171,7 +162,7 @@ handle_request(
 
     // Attempt to open the file
     beast::error_code ec;
-    http::file_body::value_type body;
+    http_proto::file_body::value_type body;
     body.open(path.c_str(), beast::file_mode::scan, ec);
 
     // Handle the case where the file doesn't exist
@@ -186,37 +177,37 @@ handle_request(
     auto const size = body.size();
 
     // Respond to HEAD request
-    if(req.method() == http::verb::head)
+    if(req.method() == http_proto::verb::head)
     {
-        http::response<http::empty_body> res{http::status::ok, req.version()};
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http::field::content_type, mime_type(path));
+        http_proto::response<http_proto::empty_body> res{http_proto::status::ok, req.version()};
+        res.set(http_proto::field::server, BOOST_BEAST_VERSION_STRING);
+        res.set(http_proto::field::content_type, mime_type(path));
         res.content_length(size);
         res.keep_alive(req.keep_alive());
         return send(std::move(res));
     }
 
     // Respond to GET request
-    http::response<http::file_body> res{
+    http_proto::response<http_proto::file_body> res{
         std::piecewise_construct,
         std::make_tuple(std::move(body)),
-        std::make_tuple(http::status::ok, req.version())};
-    res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-    res.set(http::field::content_type, mime_type(path));
+        std::make_tuple(http_proto::status::ok, req.version())};
+    res.set(http_proto::field::server, BOOST_BEAST_VERSION_STRING);
+    res.set(http_proto::field::content_type, mime_type(path));
     res.content_length(size);
     res.keep_alive(req.keep_alive());
     return send(std::move(res));
+#endif
 }
 
 //------------------------------------------------------------------------------
 
 // Report a failure
 void
-fail(beast::error_code ec, char const* what)
+fail(http_proto::error_code ec, char const* what)
 {
     std::cerr << what << ": " << ec.message() << "\n";
 }
-#endif
 
 //------------------------------------------------
 
@@ -236,17 +227,20 @@ do_session(
         http_io::read_header(socket, p, ec);
         if(ec)
             break;
-
+        http_io::read_body(socket, p, ec);
+        if(ec)
+            break;
         //...
     }
-
+    if(ec)
+        std::cout << ec.message() << std::endl;
 #if 0
     for(;;)
     {
         // Read a request
-        http::request<http::string_body> req;
-        http::read(socket, buffer, req, ec);
-        if(ec == http::error::end_of_stream)
+        http_proto::request<http_proto::string_body> req;
+        http_proto::read(socket, buffer, req, ec);
+        if(ec == http_proto::error::end_of_stream)
             break;
         if(ec)
             return fail(ec, "read");
