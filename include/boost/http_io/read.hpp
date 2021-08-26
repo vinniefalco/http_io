@@ -12,7 +12,7 @@
 
 #include <boost/http_io/detail/config.hpp>
 #include <boost/http_io/error.hpp>
-#include <boost/http_proto/basic_parser.hpp>
+#include <boost/http_proto/parser.hpp>
 
 namespace boost {
 namespace http_io {
@@ -22,7 +22,7 @@ template<
 std::size_t
 read_some(
     SyncReadStream& stream,
-    http_proto::basic_parser& parser,
+    http_proto::parser& parser,
     error_code& ec);
 
 template<
@@ -30,7 +30,7 @@ template<
 std::size_t
 read_header(
     SyncReadStream& stream,
-    http_proto::basic_parser& parser,
+    http_proto::parser& parser,
     error_code& ec);
 
 } // http_io

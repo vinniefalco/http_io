@@ -21,7 +21,7 @@ template<
 std::size_t
 read_some(
     SyncReadStream& s,
-    http_proto::basic_parser& p,
+    http_proto::parser& p,
     error_code& ec)
 {
     auto const b = p.prepare();
@@ -46,7 +46,7 @@ template<
 std::size_t
 read_header(
     SyncReadStream& s,
-    http_proto::basic_parser& p,
+    http_proto::parser& p,
     error_code& ec)
 {
     std::size_t n = 0;
@@ -72,7 +72,7 @@ template<
 std::size_t
 read_body_part(
     SyncReadStream& s,
-    http_proto::basic_parser& p,
+    http_proto::parser& p,
     error_code& ec)
 {
     std::size_t n = 0;
@@ -93,7 +93,7 @@ template<
 std::size_t
 read_body(
     SyncReadStream& s,
-    http_proto::basic_parser& p,
+    http_proto::parser& p,
     error_code& ec)
 {
     std::size_t n = 0;

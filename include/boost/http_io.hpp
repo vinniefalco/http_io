@@ -11,5 +11,6 @@
 #define BOOST_HTTP_IO_HPP
 
 #include <boost/http_io/read.hpp>
+#include <boost/http_io/write.hpp>
 
 #endif

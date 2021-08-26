@@ -16,6 +16,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/http_io.hpp>
 #include <boost/http_proto.hpp>
+#include <boost/http_proto/detail/number_string.hpp>
 
 #include <cstdlib>
 #include <iostream>
@@ -29,11 +30,11 @@ namespace net = boost::asio;
 using tcp = boost::asio::ip::tcp;
 using string_view = http_proto::string_view;
 
-//------------------------------------------------------------------------------
+//------------------------------------------------
 
 // Return a reasonable mime type based on the extension of a file.
 string_view
-mime_type(string_view path)
+mime_type(string_view path) noexcept
 {
     using http_proto::bnf::iequals;
     auto const ext = [&path]
@@ -94,30 +95,40 @@ path_cat(
     return result;
 }
 
-// This function produces an HTTP response for the given
-// request. The type of the response object depends on the
-// contents of the request, so the interface requires the
-// caller to pass a generic lambda for receiving the response.
-http_proto::response
+
+// This function produces an HTTP response for the given request.
+void
 handle_request(
-    string_view doc_root,
-    http_proto::request_view const& req)
+    http_proto::serializer& sr,
+    http_proto::response& res,
+    http_proto::request_view req,
+    http_proto::context& ctx)
 {
-    return {};
-#if 0
-    // Returns a bad request response
+    // Bad Request
     auto const bad_request =
-    [&req](beast::string_view why)
+    [&](string_view why)
     {
-        http_proto::response<http_proto::string_body> res{http_proto::status::bad_request, req.version()};
-        res.set(http_proto::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http_proto::field::content_type, "text/html");
-        res.keep_alive(req.keep_alive());
-        res.body() = std::string(why);
-        res.prepare_payload();
-        return res;
+        res.set_result(
+            http_proto::status::bad_request,
+            req.version());
+        res.fields.append( http_proto::field::server, "Boost.HTTP-Proto" );
+        res.fields.append( http_proto::field::content_type, "text/html" );
+        res.fields.append( http_proto::field::content_length,
+            http_proto::detail::number_string(why.size()) );
+        //res.keep_alive(req.keep_alive());
+        //res.body() = std::string(why);
+        //res.prepare_payload();
+        sr.staple(res, why);
     };
 
+    // Make sure we can handle the method
+#if 0
+    if( req.method() != http_proto::method::get &&
+        req.method() != http_proto::method::head)
+#endif
+        return bad_request("Unknown HTTP-method");
+
+#if 0
     // Returns a not found response
     auto const not_found =
     [&req](beast::string_view target)
@@ -156,7 +167,7 @@ handle_request(
         return send(bad_request("Illegal request-target"));
 
     // Build the path to the requested file
-    std::string path = path_cat(doc_root, req.target());
+    std::string path = path_cat(doc_root_, req.target());
     if(req.target().back() == '/')
         path.append("index.html");
 
@@ -200,69 +211,98 @@ handle_request(
 #endif
 }
 
-//------------------------------------------------------------------------------
-
-// Report a failure
-void
-fail(http_proto::error_code ec, char const* what)
-{
-    std::cerr << what << ": " << ec.message() << "\n";
-}
-
 //------------------------------------------------
 
-// Handles an HTTP server connection
-void
-do_session(
-    tcp::socket& socket,
-    std::shared_ptr<std::string const> const& doc_root)
+class connection
 {
-    bool close = false;
-    http_io::error_code ec;
-    http_proto::context ctx;
-    http_proto::request_parser p(ctx);
-
-    for(;;)
+    tcp::socket sock_;
+    string_view doc_root_;
+    http_proto::context& ctx_;
+    http_proto::request_parser rp_;
+    http_proto::serializer sr_;
+    http_proto::response res_;
+    std::string s_;
+    //http_io::file_body f_;
+public:
+    connection(
+        tcp::socket sock,
+        string_view doc_root,
+        http_proto::context& ctx)
+        : sock_(std::move(sock))
+        , doc_root_(doc_root)
+        , ctx_(ctx)
+        , rp_(ctx)
+        , sr_(ctx)
     {
-        http_io::read_header(socket, p, ec);
-        if(ec)
-            break;
-        http_io::read_body(socket, p, ec);
-        if(ec)
-            break;
-        //...
     }
-    if(ec)
-        std::cout << ec.message() << std::endl;
-#if 0
-    for(;;)
-    {
-        // Read a request
-        http_proto::request<http_proto::string_body> req;
-        http_proto::read(socket, buffer, req, ec);
-        if(ec == http_proto::error::end_of_stream)
-            break;
-        if(ec)
-            return fail(ec, "read");
 
-        // Send the response
-        handle_request(*doc_root, std::move(req), lambda);
-        if(ec)
-            return fail(ec, "write");
-        if(close)
+    //--------------------------------------------
+
+    // Report a failure
+    void
+    fail(http_proto::error_code ec, char const* what)
+    {
+        std::cerr << what << ": " << ec.message() << "\n";
+    }
+
+    //--------------------------------------------
+
+    // Handles an HTTP server connection
+    void
+    run()
+    {
+        bool close = false;
+        http_io::error_code ec;
+
+        for(;;)
         {
-            // This means we should close the connection, usually because
-            // the response indicated the "Connection: close" semantic.
-            break;
+            http_io::read_header(sock_, rp_, ec);
+            if(ec)
+                break;
+            http_io::read_body(sock_, rp_, ec);
+            if(ec)
+                break;
+            //...
         }
+        if(ec == http_proto::error::end_of_message)
+        {
+            handle_request(sr_, res_, rp_.get(), ctx_);
+            http_io::write(sock_, sr_, ec);
+        }
+        else
+        {
+            std::cout << ec.message() << std::endl;
+        }
+    #if 0
+        for(;;)
+        {
+            // Read a request
+            http_proto::request<http_proto::string_body> req;
+            http_proto::read(socket, buffer, req, ec);
+            if(ec == http_proto::error::end_of_stream)
+                break;
+            if(ec)
+                return fail(ec, "read");
+
+            // Send the response
+            handle_request(*doc_root_, std::move(req), lambda);
+            if(ec)
+                return fail(ec, "write");
+            if(close)
+            {
+                // This means we should close the connection, usually because
+                // the response indicated the "Connection: close" semantic.
+                break;
+            }
+        }
+    #endif
+
+        // Send a TCP shutdown
+        sock_.shutdown(tcp::socket::shutdown_send, ec);
+
+        // At this point the connection is closed gracefully
     }
-#endif
-
-    // Send a TCP shutdown
-    socket.shutdown(tcp::socket::shutdown_send, ec);
-
-    // At this point the connection is closed gracefully
-}
+};
 
 //------------------------------------------------------------------------------
 
@@ -286,21 +326,29 @@ int main(int argc, char* argv[])
         // The io_context is required for all I/O
         net::io_context ioc(1);
 
+        // context is required for all HTTP protocol operations
+        http_proto::context ctx;
+
         // The acceptor receives incoming connections
         tcp::acceptor acceptor(ioc, {address, port});
         for(;;)
         {
             // This will receive the new connection
-            tcp::socket socket{ioc};
+            tcp::socket sock(ioc);
 
             // Block until we get a connection
-            acceptor.accept(socket);
+            acceptor.accept(sock);
 
             // Launch the session, transferring ownership of the socket
-            std::thread(std::bind(
-                &do_session,
-                std::move(socket),
-                doc_root)).detach();
+            std::thread(
+                [&ctx, doc_root, &sock]
+                {
+                    connection c(
+                        std::move(sock),
+                        *doc_root,
+                        ctx);
+                    c.run();
+                }).detach();
         }
     }
     catch (const std::exception& e)
