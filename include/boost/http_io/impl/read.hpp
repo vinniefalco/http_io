@@ -10,6 +10,7 @@
 #ifndef BOOST_HTTP_IO_IMPL_READ_HPP
 #define BOOST_HTTP_IO_IMPL_READ_HPP
 
+#include <boost/http_io/buffer.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
 
@@ -26,9 +27,7 @@ read_some(
 {
     auto const b = p.prepare();
     auto const bytes_transferred =
-        s.read_some(
-        asio::mutable_buffer(
-            b.first, b.second), ec);
+        s.read_some(asio::mutable_buffer(b), ec);
     if(ec != asio::error::eof)
     {
         p.commit(bytes_transferred);
@@ -58,7 +57,7 @@ read_header(
         if(ec != http_proto::error::need_more)
             return n;
         auto const bytes_transferred =
-            boost::http_io::read_some(s, p, ec);
+            ::boost::http_io::read_some(s, p, ec);
         n += bytes_transferred;
         if(ec)
             return n;
@@ -82,7 +81,7 @@ read_body_part(
     if(ec != http_proto::error::need_more)
         return 0;
     auto const bytes_transferred =
-        boost::http_io::read_some(s, p, ec);
+        ::boost::http_io::read_some(s, p, ec);
     if(ec)
         return bytes_transferred;
     return bytes_transferred;
@@ -99,7 +98,7 @@ read_body(
     std::size_t n = 0;
     for(;;)
     {
-        n += read_body_part(s, p, ec);
+        n += ::boost::http_io::read_body_part(s, p, ec);
         if(ec)
             return n;
     }
