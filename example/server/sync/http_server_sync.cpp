@@ -118,7 +118,8 @@ handle_request(
         //res.keep_alive(req.keep_alive());
         //res.body() = std::string(why);
         //res.prepare_payload();
-        sr.staple(res, why);
+        sr.set_header(res);
+        sr.set_body(why.data(), why.size());
     };
 
     // Make sure we can handle the method

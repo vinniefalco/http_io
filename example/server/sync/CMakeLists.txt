@@ -19,7 +19,4 @@ set_property(
     TARGET http-server-sync
     PROPERTY FOLDER "example-server")
 
-target_link_libraries(http-server-sync
-    Boost::http_io
-    #Boost::http_proto
-    )
+target_link_libraries(http-server-sync Boost::http_io)

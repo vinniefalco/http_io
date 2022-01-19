@@ -19,7 +19,4 @@ set_property(
     TARGET http-client-sync
     PROPERTY FOLDER "example-client")
 
-target_link_libraries(http-client-sync
-    Boost::http_io
-    #Boost::http_proto
-    )
+target_link_libraries(http-client-sync Boost::http_io)

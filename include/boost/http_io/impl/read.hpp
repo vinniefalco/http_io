@@ -11,6 +11,7 @@
 #define BOOST_HTTP_IO_IMPL_READ_HPP
 
 #include <boost/http_io/buffer.hpp>
+#include <boost/url/grammar/error.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
 
@@ -54,7 +55,7 @@ read_header(
         p.parse_header(ec);
         if(! ec)
             break;
-        if(ec != http_proto::error::need_more)
+        if(ec != http_proto::grammar::error::incomplete)
             return n;
         auto const bytes_transferred =
             ::boost::http_io::read_some(s, p, ec);
@@ -78,7 +79,7 @@ read_body_part(
     p.parse_body(ec);
     if(! ec)
         return 0;
-    if(ec != http_proto::error::need_more)
+    if(ec != http_proto::grammar::error::incomplete)
         return 0;
     auto const bytes_transferred =
         ::boost::http_io::read_some(s, p, ec);

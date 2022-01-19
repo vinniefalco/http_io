@@ -48,7 +48,8 @@ int main(int argc, char** argv)
         auto const host = argv[1];
         auto const port = argv[2];
         auto const target = argv[3];
-        int version = argc == 5 && !std::strcmp("1.0", argv[4]) ? 10 : 11;
+        int version = argc == 5 &&
+            !std::strcmp("1.0", argv[4]) ? 10 : 11;
 
         // The io_context is required for all I/O
         net::io_context ioc;
@@ -74,7 +75,8 @@ int main(int argc, char** argv)
         // Send the HTTP request to the remote host
         http_proto::context ctx;
         http_proto::serializer sr( ctx );
-        sr.staple( req, string_view() );
+        sr.set_header(req);
+        sr.set_body(nullptr, 0);
         http_io::write( sock, sr, ec );
 
         // Receive the HTTP response
