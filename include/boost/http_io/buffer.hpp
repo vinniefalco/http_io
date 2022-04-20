@@ -14,22 +14,232 @@
 #include <boost/http_proto/buffer.hpp>
 #include <boost/asio/buffer.hpp>
 
+#include <cstdlib>
+#include <iterator>
+
 namespace boost {
-namespace http_proto {
+namespace http_io {
 
-mutable_buffer::
-operator asio::mutable_buffer() const noexcept
+//------------------------------------------------
+
+class mutable_buffers
 {
-    return { data(), size() };
+    http_proto::mutable_buffer const* begin_ = nullptr;
+    http_proto::mutable_buffer const* end_ = nullptr;
+
+public:
+#ifdef BOOST_IO_DOCS
+    using iterator = __implementation_defined__;
+#else
+    class iterator;
+#endif
+
+    mutable_buffers() = default;
+
+    mutable_buffers(
+        http_proto::mutable_buffers const& b) noexcept
+        : begin_(b.begin())
+        , end_(b.end())
+    {
+    }
+
+    iterator
+    begin() const noexcept;
+
+    iterator
+    end() const noexcept;
+};
+
+//------------------------------------------------
+
+class const_buffers
+{
+    http_proto::const_buffer const* begin_ = nullptr;
+    http_proto::const_buffer const* end_ = nullptr;
+
+public:
+#ifdef BOOST_IO_DOCS
+    using iterator = __implementation_defined__;
+#else
+    class iterator;
+#endif
+
+    const_buffers() = default;
+
+    const_buffers(
+        http_proto::const_buffers const& b) noexcept
+        : begin_(b.begin())
+        , end_(b.end())
+    {
+    }
+
+    iterator
+    begin() const noexcept;
+
+    iterator
+    end() const noexcept;
+};
+
+//------------------------------------------------
+
+class mutable_buffers::iterator
+{
+    friend class mutable_buffers;
+
+    http_proto::mutable_buffer const* p_ = nullptr;
+
+    explicit
+    iterator(
+        http_proto::mutable_buffer const* p)
+        : p_(p)
+    {
+    }
+
+public:
+    using value_type = asio::mutable_buffer;
+    using reference = value_type;
+    using pointer = value_type const*;
+    using difference_type =
+        std::ptrdiff_t;
+    using iterator_category =
+        std::forward_iterator_tag;
+
+    bool
+    operator==(
+        iterator const& other) const noexcept
+    {
+        return p_ == other.p_;
+    }
+
+    bool
+    operator!=(
+        iterator const& other) const noexcept
+    {
+        return !(*this == other);
+    }
+
+    reference
+    operator*() const noexcept
+    {
+        return { p_->data(), p_->size() };
+    }
+
+    iterator&
+    operator++() noexcept
+    {
+        ++p_;
+        return *this;
+    }
+
+    iterator
+    operator++(int) noexcept
+    {
+        auto temp = *this;
+        ++(*this);
+        return temp;
+    }
+};
+
+//------------------------------------------------
+
+class const_buffers::iterator
+{
+    friend class const_buffers;
+
+    http_proto::const_buffer const* p_ = nullptr;
+
+    explicit
+    iterator(
+        http_proto::const_buffer const* p)
+        : p_(p)
+    {
+    }
+
+public:
+    using value_type = asio::const_buffer;
+    using reference = value_type;
+    using pointer = value_type const*;
+    using difference_type =
+        std::ptrdiff_t;
+    using iterator_category =
+        std::forward_iterator_tag;
+
+    bool
+    operator==(
+        iterator const& other) const noexcept
+    {
+        return p_ == other.p_;
+    }
+
+    bool
+    operator!=(
+        iterator const& other) const noexcept
+    {
+        return !(*this == other);
+    }
+
+    reference
+    operator*() const noexcept
+    {
+        return { p_->data(), p_->size() };
+    }
+
+    iterator&
+    operator++() noexcept
+    {
+        ++p_;
+        return *this;
+    }
+
+    iterator
+    operator++(int) noexcept
+    {
+        auto temp = *this;
+        ++(*this);
+        return temp;
+    }
+};
+
+//------------------------------------------------
+
+inline
+auto
+mutable_buffers::
+begin() const noexcept ->
+    iterator
+{
+    return iterator(begin_);
 }
 
-const_buffer::
-operator asio::const_buffer() const noexcept
+inline
+auto
+mutable_buffers::
+end() const noexcept ->
+    iterator
 {
-    return { data(), size() };
+    return iterator(end_);
 }
 
-} // http_proto
+inline
+auto
+const_buffers::
+begin() const noexcept ->
+    iterator
+{
+    return iterator(begin_);
+}
+
+inline
+auto
+const_buffers::
+end() const noexcept ->
+    iterator
+{
+    return iterator(end_);
+}
+
+
+} // http_io
 } // boost
 
 #endif
